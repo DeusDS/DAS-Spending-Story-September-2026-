@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DAS FY27 Q1 Spending Story</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  html, body { margin:0; height:100%; background:#0B1624; font-family:Inter, system-ui, sans-serif; color:#EEF2F7 }
+  .app { position:fixed; inset:0; display:flex; flex-direction:column }
+  .viewport { flex:1; position:relative; overflow:hidden; cursor:pointer }
+  #stage { position:absolute; left:0; top:0; width:1920px; height:1080px; overflow:hidden; transform-origin:0 0;
+    --display:'Space Grotesk', system-ui, sans-serif; --sans:'Inter', system-ui, sans-serif }
+  .scene { position:absolute; inset:0; display:none }
+  .bar { display:flex; align-items:center; gap:14px; padding:10px 16px; background:#0E1B2B; border-top:1px solid #1E2E44; flex-wrap:wrap }
+  .bar button { background:#12355B; color:#EEF2F7; border:0; border-radius:6px; padding:8px 14px; font:600 14px Inter, system-ui, sans-serif; cursor:pointer; min-width:44px }
+  .bar button:hover { background:#1B4A7D }
+  .bar input[type=range] { flex:1; min-width:160px; accent-color:#2F9C95 }
+  .time { font:500 14px Inter, system-ui, sans-serif; font-variant-numeric:tabular-nums; min-width:96px; text-align:center }
+  .chap { background:#12355B; color:#EEF2F7; border:0; border-radius:6px; padding:8px 10px; font:14px Inter, system-ui, sans-serif }
+  .err { position:absolute; left:16px; bottom:16px; color:#ffb4a8; font:13px monospace; white-space:pre-wrap }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="viewport" id="vp"><div id="stage"></div></div>
+  <div class="bar">
+    <button id="play" aria-label="Play">Play</button>
+    <span class="time" id="time">0:00 / 0:00</span>
+    <input type="range" id="scrub" min="0" max="1000" step="1" value="0" aria-label="Seek">
+    <select class="chap" id="chap" aria-label="Jump to scene"></select>
+    <button id="snd" aria-label="Sound">Sound off</button>
+    <button id="fs" aria-label="Full screen">Full screen</button>
+  </div>
+</div>
+<style id="film-css">#stage { --ground:#F6F7F9; --main:#12355B; --second:#1B2330; --accent:#2F9C95; color:var(--second); font-family:var(--sans, system-ui, sans-serif) }
+.ground { position:absolute; inset:0; background:var(--ground) }
+.words { position:absolute; margin:0; display:flex; flex-direction:column; gap:20px } .words > * { margin:0 }
+.line { font-family:var(--display, var(--sans, system-ui, sans-serif)); font-size:84px; line-height:1.05; font-weight:700; color:var(--main) } .sub { font-size:34px; line-height:1.3 }
+#stage { --rule:color-mix(in srgb, var(--second) 14%, var(--ground)); --muted:color-mix(in srgb, var(--second) 62%, var(--ground)); --pale:color-mix(in srgb, var(--main) 14%, var(--ground)); --mid:color-mix(in srgb, var(--main) 45%, var(--ground)); --tealwash:color-mix(in srgb, var(--accent) 16%, var(--ground)); --paper:color-mix(in srgb, var(--ground) 60%, white) }
+.cam { position:absolute; inset:0; transform-origin:960px 540px }
+.sheet { position:absolute; left:60px; top:44px; right:60px; bottom:44px; background:var(--paper); box-shadow:0 2px 0 var(--rule), 0 18px 50px rgba(0,0,0,.06); border-top:10px solid var(--main) }
+.kick { font-size:24px; letter-spacing:.14em; text-transform:uppercase; font-weight:700; color:var(--accent) }
+.head { font-family:var(--display, var(--sans, system-ui, sans-serif)); font-size:64px; line-height:1.08; font-weight:700; color:var(--main); letter-spacing:-.01em }
+.deck { font-size:30px; line-height:1.35; color:var(--muted) }
+.foot { position:absolute; left:130px; right:130px; bottom:84px; display:flex; justify-content:space-between; gap:40px; font-size:20px; color:var(--muted); border-top:2px solid var(--rule); padding-top:14px; flex-wrap:wrap; row-gap:6px }
+.lab { font-size:28px; line-height:1.2; color:var(--second) } .lab.m { color:var(--muted) }
+.num { font-family:var(--display, var(--sans, system-ui, sans-serif)); font-variant-numeric:tabular-nums; font-weight:700; color:var(--main); line-height:1 }
+.tag { display:inline-block; padding:6px 14px; border-radius:6px; font-size:22px; font-weight:700; letter-spacing:.06em; text-transform:uppercase }
+.art { position:absolute; inset:0; width:100%; height:100%; overflow:visible }</style>
+<script>
+(function () {
+  'use strict';
+  const SCENES = {"scenes": [{"id": "title", "name": "Q1 at a glance", "dur": 8, "desc": "Title: DAS FY27 first quarter, $28.64M across 18 providers and 24 fund sources."}, {"id": "pace", "name": "On the line", "dur": 12, "desc": "Cumulative utilization tracks the straight-line pace target July through September."}, {"id": "runrate", "name": "Run rate", "dur": 10, "desc": "Q1 averaged $2.40M a month against $2.38M a month needed for the rest of the year."}, {"id": "concentration", "name": "Where the money sits", "dur": 11, "desc": "Five providers hold 73% of the budget; ARC AAA alone holds a third."}, {"id": "spread", "name": "Wide spread", "dur": 14, "desc": "September utilization by provider ranges from 0% to 55.5% around the 25% target."}, {"id": "offsets", "name": "Offsetting gaps", "dur": 13, "desc": "Dollars ahead of pace at DeKalb, Fulton and Cobb offset dollars behind at ARC AAA and Gwinnett."}, {"id": "zero", "name": "No payments yet", "dur": 11, "desc": "Three providers holding $3.12M show no payments through September."}, {"id": "momentum", "name": "Momentum", "dur": 14, "desc": "Monthly run rates project when front-loaded providers reach 100% and where ARC AAA lands."}, {"id": "funds", "name": "Fund sources", "dur": 13, "desc": "Title III B and C2 run ahead; HCBS State, Title III E and Respite trail pace."}, {"id": "categories", "name": "By category", "dur": 10, "desc": "Category utilization and how many providers and funds sit at or near target."}, {"id": "next", "name": "Questions ahead", "dur": 12, "desc": "Four questions to carry into October reporting."}, {"id": "end", "name": "End card", "dur": 7, "desc": "On pace overall, uneven underneath; source and credit."}]};
+  // ---- easing & helpers (pure functions of t) ----
+  const clamp01 = (x) => x < 0 ? 0 : x > 1 ? 1 : x;
+  const seg = (t, a, b) => clamp01((t - a) / (b - a));
+  const lerp = (a, b, p) => a + (b - a) * p;
+  const eo = (x) => 1 - Math.pow(1 - clamp01(x), 3);
+  const ei = (x) => Math.pow(clamp01(x), 3);
+  const eio = (x) => { x = clamp01(x); return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
+  const eob = (x, s) => { x = clamp01(x); s = s == null ? 1.4 : s; const y = x - 1; return 1 + (s + 1) * y * y * y + s * y * y; };
+  const TextFx = {
+    fadeFromRight(el, t, t0, o) {
+      o = o || {};
+      const st = o.stagger || 0.11, d = o.dur || 0.5, dx = o.dx || 30;
+      if (!el.__w) {
+        const words = el.textContent.split(' ');
+        el.textContent = '';
+        el.__w = words.map((w, i) => {
+          const s = document.createElement('span');
+          s.textContent = w; s.style.display = 'inline-block';
+          el.appendChild(s);
+          if (i < words.length - 1) el.appendChild(document.createTextNode(' '));
+          return s;
+        });
+      }
+      el.__w.forEach((s, i) => {
+        const a = eo(seg(t, t0 + i * st, t0 + i * st + d));
+        s.style.opacity = a; s.style.transform = 'translateX(' + ((1 - a) * dx).toFixed(1) + 'px)';
+      });
+    },
+  };
+  const h = (html) => {
+    const tpl = document.createElement('template'); tpl.innerHTML = html.trim();
+    const kids = tpl.content.children;
+    if (kids.length === 1) return kids[0];
+    const box = document.createElement('div'); box.style.display = 'contents';
+    Array.from(tpl.content.childNodes).forEach((n) => box.appendChild(n)); return box;
+  };
+  const base = { seg, lerp, clamp01, eo, ei, eio, eob, TextFx, h, W: 1920, H: 1080 };
+
+  // ---- build the timeline ----
+  const stage = document.getElementById('stage');
+  const defs = {};
+  let start = 0;
+  const T = {};
+  const list = SCENES.scenes.map((s) => { const o = { id: s.id, name: s.name, dur: s.dur, start }; T[s.id] = start; start += s.dur; return o; });
+  const TOTAL = start; T.END = TOTAL;
+  const modKit = Object.assign({}, base, { scene(id, def) { defs[id] = def; }, scenes() { return null; }, score(fn) { scoreFn = fn; } });
+  let scoreFn = null;
+  window.W = undefined;
+  const MODULES = [function (kit) {
+// The briefing book. Every scene is one exhibit page on the same paper, under the same navy rule.
+window.W = {
+  // An exhibit page: paper sheet, kicker, headline, deck line and source footer. Returns markup.
+  page(id, kick, head, deck, inner) {
+    return '<div class="ground"><div class="cam ' + id + '-cam"><div class="sheet"></div>' +
+      '<div class="words ' + id + '-hd" style="left:130px;top:110px;width:1500px;gap:14px"><p class="kick">' + kick + '</p><h2 class="head">' + head + '</h2>' + (deck ? '<p class="deck">' + deck + '</p>' : '') + '</div>' +
+      inner +
+      '<div class="foot"><span>Source: FY27 DAS Budgets vs. YTD Payments, July to September 2026</span><span>Design, development & analysis by Damon Smith · ARC Aging & Independence Services</span></div></div></div>';
+  },
+  // Wire a page's standard parts after it is appended.
+  bind(kit, id, self) {
+    const q = (s) => kit.stage.querySelector(s);
+    self.cam = q('.' + id + '-cam');
+    self.hd = Array.from(q('.' + id + '-hd').children);
+  },
+  // Shared motion for a page: a slow 2% push, and the headline block rising in line by line.
+  move(kit, self, t) {
+    const p = kit.eio(kit.seg(t, 0, kit.dur));
+    self.cam.style.transform = 'scale(' + kit.lerp(1.0, 1.02, p).toFixed(4) + ')';
+    self.hd.forEach((el, i) => {
+      const a = kit.eo(kit.seg(t, -0.4 + i * 0.25, 0.3 + i * 0.25));
+      el.style.opacity = a; el.style.transform = 'translateY(' + ((1 - a) * 26).toFixed(1) + 'px)';
+    });
+  },
+  // Fade and lift any element in from below over 0.5 s.
+  rise(kit, el, t, t0, dy) {
+    const a = kit.eo(kit.seg(t, t0, t0 + 0.5));
+    el.style.opacity = a; el.style.transform = 'translateY(' + ((1 - a) * (dy == null ? 24 : dy)).toFixed(1) + 'px)';
+    return a;
+  },
+  money(v, d) {
+    const a = Math.abs(v), s = v < 0 ? '−' : '';
+    if (a >= 1e6) return s + '$' + (a / 1e6).toFixed(d == null ? 2 : d) + 'M';
+    return s + '$' + Math.round(a / 1e3) + 'K';
+  },
+  pct(v, d) { return v.toFixed(d == null ? 1 : d) + '%'; },
+};
+
+},
+function (kit) {
+const { seg, eo, eio, lerp, clamp01 } = kit;
+kit.scene('title', {
+  init(kit) {
+    const ticks = Array.from({ length: 13 }, (_, i) => '<div style="position:absolute;left:' + (i * 100 / 12) + '%;top:-10px;width:2px;height:' + (i % 3 === 0 ? 46 : 30) + 'px;background:var(--rule)"></div>').join('');
+    const months = ['Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+    const ml = months.map((m, i) => '<span class="lab m" style="position:absolute;top:44px;left:' + ((i + 0.5) * 100 / 12) + '%;transform:translateX(-50%);font-size:22px">' + m + '</span>').join('');
+    kit.stage.append(kit.h('<div class="ground"><div class="cam title-cam"><div class="sheet"></div>' +
+      '<div class="words title-words" style="left:150px;top:150px;width:1560px;gap:26px"><p class="kick title-k">DAS FY27 · First quarter review · July to September 2026</p><h1 class="line title-line" style="font-size:132px;letter-spacing:-.02em">On pace overall, uneven underneath</h1><p class="deck title-deck">How $28.64M in Area Agency on Aging funding moved through 18 providers and 24 fund sources in Q1</p></div>' +
+      '<div class="title-bar" style="position:absolute;left:150px;right:150px;top:760px;height:26px;background:var(--pale);border-radius:13px"><div class="title-fill" style="position:absolute;left:0;top:0;bottom:0;border-radius:13px;background:var(--main)"></div><div class="title-goal" style="position:absolute;left:25%;top:-22px;bottom:-22px;width:4px;background:var(--accent)"></div>' + ticks + ml + '</div>' +
+      '<div class="words title-stat" style="left:150px;top:660px;flex-direction:row;gap:40px;align-items:baseline"><span class="num title-n" style="font-size:64px">25.1%</span><span class="lab m title-l">of the FY27 budget paid through September, against a 25.0% pace target</span></div>' +
+      '<div class="foot"><span>Source: FY27 DAS Budgets vs. YTD Payments, July to September 2026</span><span>Design, development & analysis by Damon Smith · ARC Aging & Independence Services</span></div></div></div>'));
+    const q = (s) => kit.stage.querySelector(s);
+    Object.assign(this, { cam: q('.title-cam'), k: q('.title-k'), line: q('.title-line'), deck: q('.title-deck'), bar: q('.title-bar'), fill: q('.title-fill'), goal: q('.title-goal'), stat: q('.title-stat'), n: q('.title-n') });
+  },
+  render(t, kit) {
+    this.cam.style.transform = 'scale(' + lerp(1.0, 1.025, eio(seg(t, 0, 8))).toFixed(4) + ')';
+    W.rise(kit, this.k, t, -0.5, 20);
+    kit.TextFx.fadeFromRight(this.line, t, -0.4);
+    W.rise(kit, this.deck, t, 1.0, 20);
+    W.rise(kit, this.bar, t, 1.8, 16);
+    const f = eio(seg(t, 2.3, 4.6));
+    this.fill.style.width = (25.11 * f).toFixed(2) + '%';
+    this.goal.style.opacity = eo(seg(t, 2.0, 2.5));
+    W.rise(kit, this.stat, t, 2.4, 16);
+    this.n.textContent = (12.5 + 12.61 * f).toFixed(1) + '%';
+  },
+});
+
+},
+function (kit) {
+const { seg, eo, eio, eob, lerp } = kit;
+kit.scene('pace', {
+  init(kit) {
+    const X = [240, 600, 960, 1320], Y = (p) => 820 - p * 15.5;
+    const act = [0, 7.67, 16.77, 25.11], tgt = [0, 8.33, 16.67, 25.0];
+    this.X = X; this.Y = Y; this.act = act;
+    let grid = '';
+    [0, 10, 20, 30].forEach((p) => { grid += '<line x1="200" x2="1360" y1="' + Y(p) + '" y2="' + Y(p) + '" style="stroke:var(--rule);stroke-width:2"/>'; });
+    const pts = (arr) => arr.map((p, i) => X[i] + ',' + Y(p)).join(' ');
+    const svg = '<svg class="art pace-chart" viewBox="0 0 1920 1080"><defs><clipPath id="pace-c1"><rect class="pace-r1" x="200" y="300" height="560" width="0"/></clipPath><clipPath id="pace-c2"><rect class="pace-r2" x="200" y="300" height="560" width="0"/></clipPath></defs>' +
+      '<g class="pace-grid">' + grid + '<line x1="240" x2="240" y1="' + Y(0) + '" y2="' + Y(31) + '" style="stroke:var(--rule);stroke-width:2"/></g>' +
+      '<g class="pace-target" clip-path="url(#pace-c1)"><polyline points="' + pts(tgt) + '" style="fill:none;stroke:var(--accent);stroke-width:5;stroke-dasharray:14 10"/></g>' +
+      '<g class="pace-actual" clip-path="url(#pace-c2)"><polygon points="' + pts(act) + ' 1320,' + Y(0) + ' 240,' + Y(0) + '" style="fill:color-mix(in srgb, var(--main) 10%, transparent)"/><polyline points="' + pts(act) + '" style="fill:none;stroke:var(--main);stroke-width:7;stroke-linejoin:round"/></g>' +
+      act.slice(1).map((p, i) => '<g class="pace-dot pace-dot' + i + '"><circle cx="' + X[i + 1] + '" cy="' + Y(p) + '" r="14" style="fill:var(--main);stroke:var(--paper);stroke-width:5"/></g>').join('') + '</svg>';
+    const yl = [0, 10, 20, 30].map((p) => '<span class="lab m pace-yl" style="position:absolute;left:130px;top:' + (Y(p) - 16) + 'px;font-size:24px">' + p + '%</span>').join('');
+    const xl = ['July', 'August', 'September'].map((m, i) => '<span class="lab m pace-xl" style="position:absolute;top:842px;left:' + X[i + 1] + 'px;transform:translateX(-50%)">' + m + '</span>').join('');
+    const cl = ['7.7% vs 8.3%', '16.8% vs 16.7%', '25.1% vs 25.0%'].map((s, i) => '<div class="pace-call" style="position:absolute;left:' + (X[i + 1] - 230) + 'px;top:' + (Y(act[i + 1]) - 96) + 'px;width:220px;text-align:right"><span class="num" style="font-size:30px">' + s + '</span></div>').join('');
+    const rows = [['July', 2.197], ['August', 2.607], ['September', 2.387]].map((r) => '<div class="pace-row" style="display:flex;flex-direction:column;gap:8px"><div style="display:flex;justify-content:space-between"><span class="lab">' + r[0] + '</span><span class="num" style="font-size:34px">$' + r[1].toFixed(2) + 'M</span></div><div style="height:16px;background:var(--pale);border-radius:8px"><div class="pace-b" style="height:100%;width:' + (r[1] / 2.8 * 100) + '%;background:var(--main);border-radius:8px;transform-origin:0 0"></div></div></div>').join('');
+    const panel = '<div class="words pace-panel" style="left:1440px;top:330px;width:360px;gap:30px"><p class="kick" style="color:var(--muted)">Paid each month</p>' + rows + '<p class="lab m pace-note" style="font-size:24px">Pace line: one-twelfth of the annual budget each month</p></div>';
+    const leg = '<div class="words pace-leg" style="left:280px;top:340px;gap:12px"><div style="display:flex;gap:14px;align-items:center"><span style="width:44px;height:7px;background:var(--main)"></span><span class="lab">Actual YTD utilization</span></div><div style="display:flex;gap:14px;align-items:center"><span style="width:44px;height:0;border-top:5px dashed var(--accent)"></span><span class="lab">Straight-line pace target</span></div></div>';
+    kit.stage.append(kit.h(W.page('pace', 'Exhibit 1 · Portfolio pace', 'Spending matched the pace target in each month of Q1', '', svg + yl + xl + cl + leg + panel)));
+    W.bind(kit, 'pace', this);
+    const q = (s) => kit.stage.querySelector(s), qa = (s) => Array.from(kit.stage.querySelectorAll(s));
+    Object.assign(this, { r1: q('.pace-r1'), r2: q('.pace-r2'), dots: qa('.pace-dot'), calls: qa('.pace-call'), grid: q('.pace-grid'), yl: qa('.pace-yl'), xl: qa('.pace-xl'), rows: qa('.pace-row'), bars: qa('.pace-b'), panelK: q('.pace-panel').firstChild, note: q('.pace-note'), leg: q('.pace-leg') });
+  },
+  render(t, kit) {
+    W.move(kit, this, t);
+    const g = eo(seg(t, 0.6, 1.2));
+    this.grid.style.opacity = g; this.yl.forEach((e) => e.style.opacity = g); this.xl.forEach((e) => e.style.opacity = g);
+    W.rise(kit, this.leg, t, 1.0, 14);
+    this.r1.setAttribute('width', (1160 * eio(seg(t, 1.2, 3.0))).toFixed(1));
+    this.r2.setAttribute('width', (1160 * eio(seg(t, 2.0, 6.2))).toFixed(1));
+    this.dots.forEach((d, i) => {
+      const at = 2.0 + 4.2 * ((this.X[i + 1] - 200) / 1160) - 0.1;
+      const s = eob(seg(t, at, at + 0.5), 1.7);
+      const c = d.firstChild; c.setAttribute('r', (14 * s).toFixed(2));
+      W.rise(kit, this.calls[i], t, at + 0.3, 16);
+    });
+    W.rise(kit, this.panelK, t, 6.8, 16);
+    this.rows.forEach((r, i) => { W.rise(kit, r, t, 7.1 + i * 0.35, 18); this.bars[i].style.transform = 'scaleX(' + eio(seg(t, 7.3 + i * 0.35, 8.1 + i * 0.35)).toFixed(3) + ')'; });
+    W.rise(kit, this.note, t, 8.6, 14);
+  },
+});
+
+},
+function (kit) {
+const { seg, eo, eio, eob, lerp } = kit;
+kit.scene('runrate', {
+  init(kit) {
+    const m = ['Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+    const v = [2.197, 2.607, 2.387].concat(Array(9).fill(2.383));
+    const base = 820, k = 150, x0 = 170, cw = 90;
+    let cols = '';
+    v.forEach((val, i) => {
+      const h = val * k, x = x0 + i * cw, done = i < 3;
+      cols += '<div class="runrate-col" style="position:absolute;left:' + x + 'px;top:' + (base - h) + 'px;width:66px;height:' + h + 'px;transform-origin:50% 100%;border-radius:6px 6px 0 0;' + (done ? 'background:var(--main)' : 'background:var(--tealwash);border:3px dashed var(--accent);border-bottom:none') + '"></div>';
+      cols += '<span class="lab m" style="position:absolute;top:' + (base + 14) + 'px;left:' + (x + 33) + 'px;transform:translateX(-50%);font-size:22px">' + m[i] + '</span>';
+    });
+    const avgY = base - 2.397 * k;
+    const brace = '<div class="runrate-q" style="position:absolute;left:' + x0 + 'px;top:' + (base + 56) + 'px;width:' + (cw * 3 - 24) + 'px;border-top:3px solid var(--main);padding-top:8px"><span class="lab" style="font-size:24px">Q1 actual</span></div>' +
+      '<div class="runrate-q" style="position:absolute;left:' + (x0 + cw * 3) + 'px;top:' + (base + 56) + 'px;width:' + (cw * 9 - 24) + 'px;border-top:3px dashed var(--accent);padding-top:8px"><span class="lab" style="font-size:24px">Needed each month to spend the remaining $21.45M</span></div>';
+    const avg = '<div class="runrate-avg" style="position:absolute;left:' + (x0 - 20) + 'px;top:' + avgY + 'px;width:' + (cw * 12 + 10) + 'px;border-top:3px solid var(--second);transform-origin:0 0"></div>';
+    const nums = '<div class="words runrate-nums" style="left:1330px;top:340px;width:440px;gap:40px">' +
+      '<div class="runrate-a" style="display:flex;flex-direction:column;gap:10px"><span class="num runrate-n1" style="font-size:110px">$2.40M</span><span class="lab">Average paid per month in Q1</span></div>' +
+      '<div class="runrate-a" style="display:flex;flex-direction:column;gap:10px"><span class="num runrate-n2" style="font-size:110px;color:var(--accent)">$2.38M</span><span class="lab">Needed per month, October to June</span></div>' +
+      '<p class="lab m runrate-a" style="font-size:26px">Holding Q1’s pace would draw down the full $28.64M by June 30.</p></div>';
+    kit.stage.append(kit.h(W.page('runrate', 'Exhibit 2 · Run rate', 'Q1’s monthly run rate is enough to spend the full budget', '', cols + avg + brace + nums)));
+    W.bind(kit, 'runrate', this);
+    const qa = (s) => Array.from(kit.stage.querySelectorAll(s)), q = (s) => kit.stage.querySelector(s);
+    Object.assign(this, { cols: qa('.runrate-col'), avg: q('.runrate-avg'), qs: qa('.runrate-q'), as: qa('.runrate-a'), n1: q('.runrate-n1'), n2: q('.runrate-n2') });
+  },
+  render(t, kit) {
+    W.move(kit, this, t);
+    this.cols.forEach((c, i) => {
+      const at = i < 3 ? 0.6 + i * 0.3 : 2.2 + (i - 3) * 0.14;
+      c.style.transform = 'scaleY(' + eob(seg(t, at, at + 0.6), 1.5).toFixed(3) + ')';
+    });
+    W.rise(kit, this.qs[0], t, 1.6, 12); W.rise(kit, this.qs[1], t, 3.6, 12);
+    this.avg.style.transform = 'scaleX(' + eio(seg(t, 4.2, 5.4)).toFixed(3) + ')';
+    this.as.forEach((a, i) => W.rise(kit, a, t, 4.6 + i * 1.3, 22));
+    const c1 = eo(seg(t, 4.6, 5.8)), c2 = eo(seg(t, 5.9, 7.1));
+    this.n1.textContent = '$' + (1.2 + 1.2 * c1).toFixed(2) + 'M';
+    this.n2.textContent = '$' + (1.19 + 1.19 * c2).toFixed(2) + 'M';
+  },
+});
+
+},
+function (kit) {
+const { seg, eo, eio, eob, lerp } = kit;
+kit.scene('concentration', {
+  init(kit) {
+    const seg5 = [['ARC AAA', 33.9, '$9.70M'], ['Fulton', 13.0, '$3.71M'], ['DeKalb', 9.2, '$2.65M'], ['Gwinnett', 9.1, '$2.61M'], ['Cobb', 8.2, '$2.35M'], ['13 other providers', 26.6, '$7.63M']];
+    const L = 130, Wd = 1660, top = 450, H = 210;
+    let x = L, s = '';
+    seg5.forEach((d, i) => {
+      const w = d[1] / 100 * Wd, other = i === 5;
+      const bg = i === 0 ? 'var(--main)' : other ? 'var(--pale)' : 'color-mix(in srgb, var(--main) ' + (78 - i * 9) + '%, var(--ground))';
+      const fg = other ? 'var(--second)' : 'var(--paper)';
+      s += '<div class="concentration-seg" style="position:absolute;left:' + x.toFixed(1) + 'px;top:' + top + 'px;width:' + (w - 6).toFixed(1) + 'px;height:' + H + 'px;background:' + bg + ';border-radius:4px;transform-origin:0 50%"><div class="concentration-t" style="position:absolute;left:16px;top:18px;right:8px;display:flex;flex-direction:column;gap:6px;color:' + fg + '"><span style="font-size:' + (i === 0 ? 34 : 24) + 'px;font-weight:700">' + d[0] + '</span><span class="num" style="color:inherit;font-size:' + (i === 0 ? 64 : 34) + 'px">' + d[1].toFixed(1) + '%</span><span style="font-size:' + (i === 0 ? 28 : 22) + 'px;opacity:.85">' + d[2] + '</span></div></div>';
+      x += w;
+    });
+    const fiveW = 73.4 / 100 * Wd - 6;
+    const br = '<div class="concentration-br" style="position:absolute;left:' + L + 'px;top:' + (top + H + 26) + 'px;width:' + fiveW.toFixed(1) + 'px;height:26px;border:4px solid var(--accent);border-top:none;transform-origin:0 0"></div>';
+    const call = '<div class="words concentration-call" style="left:' + L + 'px;top:' + (top + H + 84) + 'px;flex-direction:row;gap:30px;align-items:baseline"><span class="num concentration-n" style="font-size:120px;color:var(--accent)">73%</span><span class="lab" style="font-size:34px;max-width:1100px">of the $28.64M budget sits with five providers, so their pace sets the portfolio’s pace</span></div>';
+    kit.stage.append(kit.h(W.page('concentration', 'Exhibit 3 · Budget concentration', 'One provider holds a third of the budget; five hold nearly three-quarters', '', s + br + call)));
+    W.bind(kit, 'concentration', this);
+    const qa = (s) => Array.from(kit.stage.querySelectorAll(s)), q = (s) => kit.stage.querySelector(s);
+    Object.assign(this, { segs: qa('.concentration-seg'), ts: qa('.concentration-t'), br: q('.concentration-br'), call: q('.concentration-call'), n: q('.concentration-n') });
+  },
+  render(t, kit) {
+    W.move(kit, this, t);
+    this.segs.forEach((e, i) => {
+      const at = 0.7 + i * 0.45;
+      e.style.transform = 'scaleX(' + eio(seg(t, at, at + 0.7)).toFixed(3) + ')';
+      W.rise(kit, this.ts[i], t, at + 0.45, 10);
+    });
+    this.br.style.transform = 'scaleX(' + eio(seg(t, 4.4, 5.4)).toFixed(3) + ')';
+    W.rise(kit, this.call, t, 5.2, 22);
+    this.n.textContent = Math.round(36 + 37.4 * eo(seg(t, 5.2, 6.6))) + '%';
+    const pulse = 1 + 0.015 * Math.sin(t * 2.1);
+    this.segs[0].style.filter = 'none';
+  },
+});
+
+},
+function (kit) {
+const { seg, eo, eio, eob, lerp } = kit;
+kit.scene('spread', {
+  init(kit) {
+    const d = [['DeKalb', 55.5], ['HP', 54.9], ['Cobb', 37.6], ['Fulton', 35.8], ['Henry', 30.1], ['Rockdale', 25.5], ['ALAS', 25.0], ['Cherokee', 24.8], ['Clayton', 23.9], ['Douglas', 23.4], ['LAA', 23.2], ['Fayette', 22.8], ['PCH', 22.0], ['ISDD', 21.9], ['ARC AAA', 17.7], ['Gwinnett', 0], ['JF&CS', 0], ['Skylark', 0]];
+    this.d = d;
+    const sc = 9.6, top = 350, rh = 56, nameW = 190;
+    let s = '';
+    [0, 1].forEach((c) => {
+      const x0 = 130 + c * 870, bx = x0 + nameW;
+      s += '<div class="spread-ref" style="position:absolute;left:' + (bx + 25 * sc) + 'px;top:' + (top - 34) + 'px;height:' + (rh * 9 + 20) + 'px;border-left:4px dashed var(--accent);transform-origin:0 0"><span class="lab" style="position:absolute;left:10px;top:-8px;font-size:22px;color:var(--accent);font-weight:700;white-space:nowrap">25% target</span></div>';
+      d.slice(c * 9, c * 9 + 9).forEach((r, i) => {
+        const y = top + i * rh, on = r[1] >= 23.75, near = r[1] >= 22.5;
+        const bg = on ? 'var(--main)' : near ? 'var(--mid)' : 'color-mix(in srgb, var(--main) 28%, var(--ground))';
+        s += '<div class="spread-row" style="position:absolute;left:' + x0 + 'px;top:' + y + 'px;width:820px;height:' + rh + 'px"><span class="lab" style="position:absolute;left:0;top:10px;font-size:26px">' + r[0] + '</span>' +
+          '<div class="spread-bar" style="position:absolute;left:' + nameW + 'px;top:12px;height:30px;width:' + Math.max(r[1] * sc, 3) + 'px;background:' + bg + ';border-radius:0 4px 4px 0;transform-origin:0 50%"></div>' +
+          '<span class="num spread-v" style="position:absolute;left:' + (nameW + Math.max(r[1] * sc, 3) + 14) + 'px;top:10px;font-size:28px;' + (r[1] === 0 ? 'color:var(--muted)' : '') + '">' + (r[1] === 0 ? 'No payments' : r[1].toFixed(1) + '%') + '</span></div>';
+      });
+    });
+    const tagA = '<div class="spread-tag spread-tagA" style="position:absolute;left:' + 720 + 'px;top:' + (top - 74) + 'px;padding:8px 16px;border-radius:8px;background:var(--tealwash);border:2px solid var(--accent)"><span class="lab" style="font-size:24px;font-weight:700">More than 2× the pace target</span></div>';
+    const tagB = '<div class="spread-tag spread-tagB" style="position:absolute;left:' + (1000 + 190 + 17.7 * 9.6 + 130) + 'px;top:' + (top + 5 * rh + 6) + 'px;padding:8px 16px;border-radius:8px;background:var(--tealwash);border:2px solid var(--accent)"><span class="lab" style="font-size:24px;font-weight:700">$711K behind pace</span></div>';
+    const leg = '<div class="words spread-leg" style="left:130px;top:880px;flex-direction:row;gap:40px;align-items:center"><span class="lab m" style="font-size:24px;display:flex;gap:10px;align-items:center"><span style="width:22px;height:22px;background:var(--main);border-radius:3px"></span>At or near target: 9 of 18</span><span class="lab m" style="font-size:24px;display:flex;gap:10px;align-items:center"><span style="width:22px;height:22px;background:var(--mid);border-radius:3px"></span>Slightly behind: 3</span><span class="lab m" style="font-size:24px;display:flex;gap:10px;align-items:center"><span style="width:22px;height:22px;background:color-mix(in srgb, var(--main) 28%, var(--ground));border-radius:3px"></span>Under 90% of target: 6</span></div>';
+    kit.stage.append(kit.h(W.page('spread', 'Exhibit 4 · Provider utilization, September', 'Provider pace ranges from 0% to 55.5%', '', s + tagA + tagB + leg)));
+    W.bind(kit, 'spread', this);
+    const qa = (s) => Array.from(kit.stage.querySelectorAll(s)), q = (s) => kit.stage.querySelector(s);
+    Object.assign(this, { refs: qa('.spread-ref'), rows: qa('.spread-row'), bars: qa('.spread-bar'), vs: qa('.spread-v'), tagA: q('.spread-tagA'), tagB: q('.spread-tagB'), leg: q('.spread-leg') });
+  },
+  render(t, kit) {
+    W.move(kit, this, t);
+    this.refs.forEach((r) => { r.style.opacity = eo(seg(t, 0.6, 1.1)); r.style.transform = 'scaleY(' + eio(seg(t, 0.6, 1.4)).toFixed(3) + ')'; });
+    this.rows.forEach((r, i) => {
+      const at = 1.0 + i * 0.22;
+      r.style.opacity = eo(seg(t, at, at + 0.35));
+      this.bars[i].style.transform = 'scaleX(' + eio(seg(t, at + 0.1, at + 0.9)).toFixed(3) + ')';
+      this.vs[i].style.opacity = eo(seg(t, at + 0.7, at + 1.1));
+    });
+    W.rise(kit, this.leg, t, 5.8, 14);
+    W.rise(kit, this.tagA, t, 7.4, 14);
+    W.rise(kit, this.tagB, t, 9.4, 14);
+  },
+});
+
+},
+function (kit) {
+const { seg, eo, eio, eob, lerp } = kit;
+kit.scene('offsets', {
+  init(kit) {
+    const d = [['DeKalb', 807], ['Fulton', 400], ['Cobb', 295], ['Henry, HP, Rockdale', 89], ['ARC AAA', -711], ['Gwinnett', -653], ['JF&CS', -108], ['9 others', -89]];
+    const base = 800, k = 0.27, x0 = 170, cw = 172;
+    let cum = 0, s = '';
+    this.cols = [];
+    d.forEach((r, i) => {
+      const a = cum, b = cum + r[1]; cum = b;
+      const lo = Math.min(a, b), hi = Math.max(a, b), up = r[1] > 0;
+      const x = x0 + i * cw, y = base - hi * k, h = (hi - lo) * k;
+      s += '<div class="offsets-col" style="position:absolute;left:' + x + 'px;top:' + y + 'px;width:124px;height:' + h + 'px;background:' + (up ? 'var(--main)' : 'color-mix(in srgb, var(--main) 30%, var(--ground))') + ';border-radius:3px;transform-origin:50% ' + (up ? '100%' : '0%') + '"></div>';
+      s += '<span class="num offsets-v" style="position:absolute;left:' + (x + 62) + 'px;top:' + (up ? y - 44 : y + h + 10) + 'px;transform:translateX(-50%);font-size:30px;white-space:nowrap">' + (up ? '+$' : '−$') + Math.abs(r[1]) + 'K</span>';
+      s += '<span class="lab offsets-n" style="position:absolute;left:' + (x + 62) + 'px;top:' + (base + 18) + 'px;transform:translateX(-50%);font-size:24px;text-align:center;width:160px">' + r[0] + '</span>';
+      if (i < d.length - 1) s += '<div class="offsets-link" style="position:absolute;left:' + (x + 124) + 'px;top:' + (base - b * k) + 'px;width:' + (cw - 124) + 'px;border-top:2px dashed var(--muted)"></div>';
+    });
+    const nx = x0 + d.length * cw;
+    s += '<div class="offsets-net" style="position:absolute;left:' + nx + 'px;top:' + (base - 31 * k) + 'px;width:124px;height:' + (31 * k) + 'px;background:var(--accent);border-radius:3px"></div>';
+    s += '<div class="words offsets-nl" style="left:' + (nx - 40) + 'px;top:' + (base - 220) + 'px;width:300px;gap:6px"><span class="num" style="font-size:56px;color:var(--accent)">+$31K</span><span class="lab" style="font-size:26px">Net position vs. pace</span></div>';
+    s += '<span class="lab offsets-n" style="position:absolute;left:' + (nx + 62) + 'px;top:' + (base + 18) + 'px;transform:translateX(-50%);font-size:24px;font-weight:700">Net</span>';
+    s += '<div class="offsets-axis" style="position:absolute;left:150px;width:1640px;top:' + base + 'px;border-top:3px solid var(--second)"></div>';
+    s += '<div class="words offsets-side" style="left:170px;top:898px;flex-direction:row;gap:60px"><span class="lab offsets-s">$1.59M ahead of pace at six providers</span><span class="lab offsets-s">$1.56M behind pace across the other twelve</span></div>';
+    kit.stage.append(kit.h(W.page('offsets', 'Exhibit 5 · Dollars ahead of or behind pace, September', 'Fast spenders are offsetting slow ones almost dollar for dollar', '', s)));
+    W.bind(kit, 'offsets', this);
+    const qa = (s) => Array.from(kit.stage.querySelectorAll(s)), q = (s) => kit.stage.querySelector(s);
+    Object.assign(this, { cs: qa('.offsets-col'), vs: qa('.offsets-v'), ns: qa('.offsets-n'), links: qa('.offsets-link'), net: q('.offsets-net'), nl: q('.offsets-nl'), axis: q('.offsets-axis'), side: qa('.offsets-s') });
+  },
+  render(t, kit) {
+    W.move(kit, this, t);
+    this.axis.style.opacity = eo(seg(t, 0.5, 1.0));
+    this.cs.forEach((c, i) => {
+      const at = 1.0 + i * 0.75 + (i >= 4 ? 0.6 : 0);
+      c.style.transform = 'scaleY(' + eio(seg(t, at, at + 0.6)).toFixed(3) + ')';
+      this.vs[i].style.opacity = eo(seg(t, at + 0.45, at + 0.85));
+      this.ns[i].style.opacity = eo(seg(t, at - 0.1, at + 0.3));
+      if (this.links[i]) this.links[i].style.opacity = eo(seg(t, at + 0.6, at + 0.9));
+    });
+    const nt = 1.0 + 8 * 0.75 + 0.9;
+    this.net.style.transform = 'scaleY(' + eob(seg(t, nt, nt + 0.5), 1.8).toFixed(3) + ')';
+    this.net.style.transformOrigin = '50% 100%';
+    this.ns[8].style.opacity = eo(seg(t, nt - 0.2, nt + 0.2));
+    W.rise(kit, this.nl, t, nt + 0.3, 18);
+    this.side.forEach((e, i) => W.rise(kit, e, t, 4.0 + i * 3.6, 14));
+  },
+});
+
+},
+function (kit) {
+const { seg, eo, eio, eob, lerp } = kit;
+kit.scene('zero', {
+  init(kit) {
+    const d = [['Gwinnett County', '$2.61M'], ['Jewish Family and Career Services', '$0.43M'], ['Skylark ADH Johns Creek', '$0.08M']];
+    const m = ['Jul', 'Aug', 'Sep'];
+    let s = '<div class="words zero-hdr" style="left:150px;top:350px;flex-direction:row;gap:0"><span class="lab m" style="width:560px;font-size:24px">Provider</span><span class="lab m" style="width:180px;font-size:24px">Budget</span><span class="lab m" style="font-size:24px">Payments by month</span></div>';
+    d.forEach((r, i) => {
+      const y = 400 + i * 128;
+      s += '<div class="zero-row" style="position:absolute;left:130px;top:' + y + 'px;width:1140px;height:108px;background:var(--paper);border:2px solid var(--rule);border-radius:10px">' +
+        '<span class="lab" style="position:absolute;left:20px;top:34px;font-size:30px;font-weight:700;width:520px">' + r[0] + '</span>' +
+        '<span class="num" style="position:absolute;left:580px;top:32px;font-size:40px">' + r[1] + '</span>' +
+        m.map((mm, j) => '<div class="zero-cell" style="position:absolute;left:' + (760 + j * 124) + 'px;top:18px;width:108px;height:72px;border-radius:8px;border:3px dashed var(--mid);display:flex;flex-direction:column;align-items:center;justify-content:center"><span class="lab m" style="font-size:20px">' + mm + '</span><span class="num" style="font-size:28px;color:var(--muted)">$0</span></div>').join('') + '</div>';
+    });
+    s += '<div class="zero-sum" style="position:absolute;left:130px;top:796px;width:1140px;border-top:3px solid var(--second);padding-top:14px;display:flex;gap:30px;align-items:baseline"><span class="lab" style="width:530px;font-size:30px;font-weight:700">Total budget with no payments</span><span class="num" style="font-size:48px">$3.12M</span><span class="lab m">10.9% of the portfolio</span></div>';
+    s += '<div class="words zero-right" style="left:1360px;top:360px;width:420px;gap:22px">' +
+      '<p class="kick" style="color:var(--muted)">Utilization, September</p>' +
+      '<div class="zero-st" style="display:flex;flex-direction:column;gap:6px"><span class="num" style="font-size:96px">25.1%</span><span class="lab">All 18 providers</span></div>' +
+      '<div class="zero-st" style="display:flex;flex-direction:column;gap:6px"><span class="num zero-n" style="font-size:96px;color:var(--accent)">28.2%</span><span class="lab">The other 15, once these three are set aside</span></div>' +
+      '<p class="lab m zero-st" style="font-size:26px">Worth confirming whether invoices are pending or services have yet to start.</p></div>';
+    kit.stage.append(kit.h(W.page('zero', 'Exhibit 6 · Providers with no payments through September', '$3.12M sits with three providers that have not drawn funds', '', s)));
+    W.bind(kit, 'zero', this);
+    const qa = (s) => Array.from(kit.stage.querySelectorAll(s)), q = (s) => kit.stage.querySelector(s);
+    Object.assign(this, { hdr: q('.zero-hdr'), rows: qa('.zero-row'), cells: qa('.zero-cell'), sum: q('.zero-sum'), k: q('.zero-right').firstChild, st: qa('.zero-st'), n: q('.zero-n') });
+  },
+  render(t, kit) {
+    W.move(kit, this, t);
+    W.rise(kit, this.hdr, t, 0.6, 10);
+    this.rows.forEach((r, i) => W.rise(kit, r, t, 0.9 + i * 0.5, 24));
+    this.cells.forEach((c, i) => {
+      const at = 1.6 + Math.floor(i / 3) * 0.5 + (i % 3) * 0.22;
+      const s = eob(seg(t, at, at + 0.4), 1.6);
+      c.style.transform = 'scale(' + (0.6 + 0.4 * s).toFixed(3) + ')';
+      c.style.opacity = eo(seg(t, at, at + 0.3));
+    });
+    W.rise(kit, this.sum, t, 3.8, 16);
+    W.rise(kit, this.k, t, 5.0, 14);
+    this.st.forEach((e, i) => W.rise(kit, e, t, 5.4 + i * 1.2, 20));
+    this.n.textContent = (25.1 + 3.1 * eio(seg(t, 6.6, 7.8))).toFixed(1) + '%';
+  },
+});
+
+},
+function (kit) {
+const { seg, eo, eio, eob, lerp } = kit;
+kit.scene('momentum', {
+  init(kit) {
+    const X = (m) => 220 + m * 90, Y = (p) => 840 - p * 4.8;
+    const L = [['DeKalb', [0, 15.5, 36.6, 55.5], 'var(--main)', 7], ['Cobb', [0, 8.0, 24.4, 37.6], 'color-mix(in srgb, var(--main) 75%, var(--ground))', 5], ['Fulton', [0, 12.2, 24.1, 35.8], 'color-mix(in srgb, var(--main) 60%, var(--ground))', 5], ['ARC AAA', [0, 5.7, 12.2, 17.7], 'var(--second)', 7]];
+    let g = '';
+    [0, 25, 50, 75, 100].forEach((p) => { g += '<line x1="220" x2="1300" y1="' + Y(p) + '" y2="' + Y(p) + '" style="stroke:var(--rule);stroke-width:2"/>'; });
+    let act = '', proj = '', mk = '';
+    this.ends = [];
+    L.forEach((l) => {
+      const v = l[1], sl = v[3] / 3, em = Math.min(12, 100 / sl), ev = Math.min(100, 12 * sl);
+      act += '<polyline points="' + v.map((p, i) => X(i) + ',' + Y(p)).join(' ') + '" style="fill:none;stroke:' + l[2] + ';stroke-width:' + l[3] + ';stroke-linejoin:round"/>';
+      proj += '<line x1="' + X(3) + '" y1="' + Y(v[3]) + '" x2="' + X(em) + '" y2="' + Y(ev) + '" style="stroke:' + l[2] + ';stroke-width:4;stroke-dasharray:10 9"/>';
+      mk += '<circle class="momentum-mk" cx="' + X(em) + '" cy="' + Y(ev) + '" r="11" style="fill:' + l[2] + ';stroke:var(--paper);stroke-width:4"/>';
+      this.ends.push([X(em), Y(ev), em]);
+    });
+    const svg = '<svg class="art momentum-chart" viewBox="0 0 1920 1080"><defs><clipPath id="momentum-ca"><rect class="momentum-ra" x="210" y="300" height="560" width="0"/></clipPath><clipPath id="momentum-cp"><rect class="momentum-rp" x="' + X(3) + '" y="300" height="560" width="0"/></clipPath><clipPath id="momentum-ct"><rect class="momentum-rt" x="210" y="300" height="560" width="0"/></clipPath></defs>' +
+      '<g class="momentum-grid">' + g + '<rect x="' + X(0) + '" y="' + Y(100) + '" width="' + (X(3) - X(0)) + '" height="' + (Y(0) - Y(100)) + '" style="fill:color-mix(in srgb, var(--main) 5%, transparent)"/></g>' +
+      '<g class="momentum-pace" clip-path="url(#momentum-ct)"><line x1="' + X(0) + '" y1="' + Y(0) + '" x2="' + X(12) + '" y2="' + Y(100) + '" style="stroke:var(--accent);stroke-width:5"/></g>' +
+      '<g class="momentum-proj" clip-path="url(#momentum-cp)">' + proj + '</g><g class="momentum-act" clip-path="url(#momentum-ca)">' + act + '</g><g class="momentum-mks">' + mk + '</g></svg>';
+    const ms = ['Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+    let lab = ms.map((m, i) => '<span class="lab m momentum-ax" style="position:absolute;top:856px;left:' + X(i + 0.5) + 'px;transform:translateX(-50%);font-size:22px">' + m + '</span>').join('');
+    lab += [0, 50, 100].map((p) => '<span class="lab m momentum-ax" style="position:absolute;left:120px;top:' + (Y(p) - 15) + 'px;font-size:22px;width:80px;text-align:right">' + p + '%</span>').join('');
+    lab += '<span class="lab momentum-ax" style="position:absolute;left:' + (X(0) + 14) + 'px;top:' + (Y(100) + 10) + 'px;font-size:22px;font-weight:700">Q1 actual</span>';
+    lab += '<span class="lab momentum-pl" style="position:absolute;left:' + (X(10.2)) + 'px;top:' + (Y(85) + 14) + 'px;font-size:24px;color:var(--accent);font-weight:700">Pace</span>';
+    const tags = [['DeKalb', -150, -52], ['Cobb', -90, -52], ['Fulton', 18, -14], ['ARC AAA', -130, 16]];
+    lab += tags.map((tg, i) => '<span class="lab momentum-tg" style="position:absolute;left:' + (this.ends[i][0] + tg[1]) + 'px;top:' + (this.ends[i][1] + tg[2]) + 'px;font-size:26px;font-weight:700;white-space:nowrap">' + tg[0] + '</span>').join('');
+    const rows = [['DeKalb and House Proud', 'Reach 100% around December'], ['Cobb', 'Reaches 100% around February'], ['Fulton', 'Reaches 100% around March'], ['ARC AAA', 'About 71% spent by June 30']];
+    const panel = '<div class="words momentum-panel" style="left:1390px;top:330px;width:400px;gap:24px"><p class="kick" style="color:var(--muted)">If Q1’s monthly rate holds</p>' + rows.map((r) => '<div class="momentum-row" style="display:flex;flex-direction:column;gap:4px;border-left:5px solid var(--main);padding-left:16px"><span class="lab" style="font-weight:700">' + r[0] + '</span><span class="lab m" style="font-size:26px">' + r[1] + '</span></div>').join('') + '<p class="lab m momentum-note" style="font-size:22px">Straight-line projection of the Q1 average. Illustrative, not a forecast.</p></div>';
+    kit.stage.append(kit.h(W.page('momentum', 'Exhibit 7 · Momentum', 'At Q1 rates, some budgets run out early while ARC AAA falls short', '', svg + lab + panel)));
+    W.bind(kit, 'momentum', this);
+    const qa = (s) => Array.from(kit.stage.querySelectorAll(s)), q = (s) => kit.stage.querySelector(s);
+    Object.assign(this, { ra: q('.momentum-ra'), rp: q('.momentum-rp'), rt: q('.momentum-rt'), grid: q('.momentum-grid'), ax: qa('.momentum-ax'), pl: q('.momentum-pl'), mks: qa('.momentum-mk'), tgs: qa('.momentum-tg'), pk: q('.momentum-panel').firstChild, rows: qa('.momentum-row'), note: q('.momentum-note') });
+  },
+  render(t, kit) {
+    W.move(kit, this, t);
+    const g = eo(seg(t, 0.5, 1.0));
+    this.grid.style.opacity = g; this.ax.forEach((e) => e.style.opacity = g);
+    this.rt.setAttribute('width', (1100 * eio(seg(t, 0.9, 2.4))).toFixed(1));
+    this.pl.style.opacity = eo(seg(t, 2.2, 2.6));
+    this.ra.setAttribute('width', (280 * eio(seg(t, 1.8, 3.6))).toFixed(1));
+    this.rp.setAttribute('width', (820 * eio(seg(t, 4.0, 7.2))).toFixed(1));
+    this.mks.forEach((m, i) => {
+      const at = 4.0 + 3.2 * ((this.ends[i][2] - 3) / 9);
+      m.setAttribute('r', (11 * eob(seg(t, at, at + 0.45), 1.8)).toFixed(2));
+      this.tgs[i].style.opacity = eo(seg(t, at + 0.2, at + 0.6));
+    });
+    W.rise(kit, this.pk, t, 7.6, 14);
+    this.rows.forEach((r, i) => W.rise(kit, r, t, 8.0 + i * 0.6, 18));
+    W.rise(kit, this.note, t, 10.6, 12);
+  },
+});
+
+},
+function (kit) {
+const { seg, eo, eio, eob, lerp } = kit;
+kit.scene('funds', {
+  init(kit) {
+    const d = [['Title III B · Supportive Services', 40.7, 486], ['Title III C2 · Home-Delivered Meals', 36.6, 297], ['NSIP · State', 31.7, 57], ['NSIP · ACL', 32.7, 52], ['Title III A · Administration', 21.5, -47], ['Title III C1 · Congregate Meals', 23.2, -91], ['CBS · Respite Care State', 13.3, -93], ['Title III E · Family Caregiver', 13.0, -144], ['CBS · HCBS State', 20.4, -422]];
+    const ax = 1060, k = 0.8, top = 360, rh = 56;
+    let s = '<span class="lab m funds-h" style="position:absolute;left:130px;top:' + (top - 44) + 'px;font-size:22px">Fund source</span><span class="lab m funds-h" style="position:absolute;left:620px;top:' + (top - 44) + 'px;font-size:22px">Spent</span>' +
+      '<span class="lab m funds-h" style="position:absolute;left:' + (ax - 250) + 'px;top:' + (top - 44) + 'px;font-size:22px;width:230px;text-align:right">Behind pace</span><span class="lab m funds-h" style="position:absolute;left:' + (ax + 20) + 'px;top:' + (top - 44) + 'px;font-size:22px">Ahead of pace</span>';
+    d.forEach((r, i) => {
+      const y = top + i * rh, w = Math.abs(r[2]) * k, up = r[2] > 0;
+      s += '<div class="funds-row" style="position:absolute;left:0;top:' + y + 'px;width:1920px;height:' + rh + 'px">' +
+        '<span class="lab" style="position:absolute;left:130px;top:12px;font-size:25px">' + r[0] + '</span>' +
+        '<span class="num" style="position:absolute;left:620px;top:12px;font-size:27px">' + r[1].toFixed(1) + '%</span>' +
+        '<div class="funds-bar" style="position:absolute;top:12px;height:32px;left:' + (up ? ax : ax - w) + 'px;width:' + w + 'px;background:' + (up ? 'var(--main)' : 'color-mix(in srgb, var(--main) 30%, var(--ground))') + ';transform-origin:' + (up ? '0' : '100%') + ' 50%"></div>' +
+        '<span class="num funds-v" style="position:absolute;top:12px;font-size:27px;white-space:nowrap;' + (up ? 'left:' + (ax + w + 14) + 'px' : 'left:' + (ax + 16) + 'px;color:var(--muted)') + '">' + (up ? '+$' : '−$') + Math.abs(r[2]) + 'K</span></div>';
+    });
+    s += '<div class="funds-axis" style="position:absolute;left:' + ax + 'px;top:' + (top - 10) + 'px;height:' + (rh * 9 + 20) + 'px;border-left:3px solid var(--second)"></div>';
+    s += '<div class="funds-hl" style="position:absolute;left:110px;top:' + (top + 8 * rh - 4) + 'px;width:1700px;height:' + (rh + 8) + 'px;border:3px solid var(--accent);border-radius:10px"></div>';
+    s += '<div class="words funds-call" style="left:1480px;top:' + (top + 4 * rh) + 'px;width:330px;gap:8px"><span class="num" style="font-size:60px;color:var(--accent)">$9.27M</span><span class="lab" style="font-size:26px">HCBS State is the largest fund, a third of the budget, and the biggest lag</span></div>';
+    s += '<p class="lab m funds-note" style="position:absolute;left:130px;top:' + (top + 9 * rh + 22) + 'px;font-size:24px;margin:0">Title III D Health Promotion recorded no new payments in September and holds at 10.7%.</p>';
+    kit.stage.append(kit.h(W.page('funds', 'Exhibit 8 · Fund sources vs. 25% pace, September', 'Meals and supportive services run ahead; caregiver and home-based funds trail', '', s)));
+    W.bind(kit, 'funds', this);
+    const qa = (s) => Array.from(kit.stage.querySelectorAll(s)), q = (s) => kit.stage.querySelector(s);
+    Object.assign(this, { hs: qa('.funds-h'), rows: qa('.funds-row'), bars: qa('.funds-bar'), vs: qa('.funds-v'), axis: q('.funds-axis'), hl: q('.funds-hl'), call: q('.funds-call'), note: q('.funds-note') });
+  },
+  render(t, kit) {
+    W.move(kit, this, t);
+    const a = eo(seg(t, 0.5, 1.0));
+    this.hs.forEach((e) => e.style.opacity = a); this.axis.style.opacity = a;
+    this.rows.forEach((r, i) => {
+      const at = 0.9 + i * 0.42 + (i >= 4 ? 0.5 : 0);
+      r.style.opacity = eo(seg(t, at, at + 0.35));
+      this.bars[i].style.transform = 'scaleX(' + eio(seg(t, at + 0.1, at + 0.8)).toFixed(3) + ')';
+      this.vs[i].style.opacity = eo(seg(t, at + 0.6, at + 0.9));
+    });
+    const h = eo(seg(t, 6.4, 6.9));
+    this.hl.style.opacity = h; this.hl.style.transform = 'scale(' + lerp(1.03, 1, h).toFixed(4) + ')';
+    W.rise(kit, this.call, t, 6.8, 18);
+    W.rise(kit, this.note, t, 9.2, 12);
+  },
+});
+
+},
+function (kit) {
+const { seg, eo, eio, eob, lerp } = kit;
+kit.scene('categories', {
+  init(kit) {
+    const d = [['NSIP', '$1.68M', 31.2], ['OAA', '$13.34M', 28.6], ['Alzheimer’s', '$0.81M', 26.3], ['SSBG', '$1.13M', 22.7], ['MFP', '$0.74M', 20.8], ['CBS', '$10.80M', 20.4], ['Other', '$0.14M', 18.6]];
+    const x0 = 470, k = 17, top = 350, rh = 74;
+    let s = '<div class="categories-ref" style="position:absolute;left:' + (x0 + 25 * k) + 'px;top:' + (top - 30) + 'px;height:' + (rh * 7 + 24) + 'px;border-left:4px dashed var(--accent)"><span class="lab" style="position:absolute;left:10px;bottom:-34px;font-size:22px;font-weight:700;color:var(--accent);white-space:nowrap">25% target</span></div>';
+    d.forEach((r, i) => {
+      const y = top + i * rh, big = r[0] === 'OAA' || r[0] === 'CBS';
+      s += '<div class="categories-row" style="position:absolute;left:130px;top:' + y + 'px;width:1000px;height:' + rh + 'px">' +
+        '<span class="lab" style="position:absolute;left:0;top:8px;font-size:30px;font-weight:' + (big ? 700 : 400) + '">' + r[0] + '</span>' +
+        '<span class="lab m" style="position:absolute;left:180px;top:12px;font-size:24px">' + r[1] + '</span>' +
+        '<div class="categories-bar" style="position:absolute;left:' + (x0 - 130) + 'px;top:8px;height:' + (big ? 46 : 34) + 'px;width:' + (r[2] * k) + 'px;background:' + (big ? 'var(--main)' : 'var(--mid)') + ';border-radius:0 4px 4px 0;transform-origin:0 50%"></div>' +
+        '<span class="num categories-v" style="position:absolute;left:' + (x0 - 130 + r[2] * k + 14) + 'px;top:12px;font-size:30px">' + r[2].toFixed(1) + '%</span></div>';
+    });
+    const tile = (n, of, l) => '<div class="categories-tile" style="background:var(--paper);border:2px solid var(--rule);border-top:6px solid var(--accent);border-radius:8px;padding:24px 28px;display:flex;flex-direction:column;gap:10px"><span class="num" style="font-size:84px">' + n + '</span><span class="lab" style="font-weight:700">' + of + '</span><span class="lab m" style="font-size:24px">' + l + '</span></div>';
+    s += '<div class="words categories-right" style="left:1260px;top:340px;width:530px;gap:24px"><p class="kick" style="color:var(--muted)">At or near target</p>' + tile('9 of 18', 'Providers', 'The same count in July, August and September') + tile('10 of 24', 'Fund sources', 'Ten in July and August as well') + '</div>';
+    kit.stage.append(kit.h(W.page('categories', 'Exhibit 9 · Utilization by fund category, September', 'OAA is ahead of pace; CBS, the other large category, trails', '', s)));
+    W.bind(kit, 'categories', this);
+    const qa = (s) => Array.from(kit.stage.querySelectorAll(s)), q = (s) => kit.stage.querySelector(s);
+    Object.assign(this, { ref: q('.categories-ref'), rows: qa('.categories-row'), bars: qa('.categories-bar'), vs: qa('.categories-v'), rk: q('.categories-right').firstChild, tiles: qa('.categories-tile') });
+  },
+  render(t, kit) {
+    W.move(kit, this, t);
+    this.ref.style.opacity = eo(seg(t, 0.5, 1.0));
+    this.rows.forEach((r, i) => {
+      const at = 0.8 + i * 0.3;
+      r.style.opacity = eo(seg(t, at, at + 0.3));
+      this.bars[i].style.transform = 'scaleX(' + eio(seg(t, at + 0.1, at + 0.8)).toFixed(3) + ')';
+      this.vs[i].style.opacity = eo(seg(t, at + 0.6, at + 0.9));
+    });
+    W.rise(kit, this.rk, t, 3.8, 14);
+    this.tiles.forEach((e, i) => W.rise(kit, e, t, 4.2 + i * 1.4, 24));
+  },
+});
+
+},
+function (kit) {
+const { seg, eo, eio, eob, lerp } = kit;
+kit.scene('next', {
+  init(kit) {
+    const d = [['01', 'Are invoices pending for Gwinnett, JF&CS and Skylark?', '$3.12M with no payments recorded through September'], ['02', 'How will ARC AAA close its $711K gap to pace?', 'Largest budget in the portfolio, 17.7% spent'], ['03', 'Do DeKalb and House Proud need budget revisions?', 'At Q1 rates, both reach 100% around December'], ['04', 'Why are caregiver and respite funds lagging?', 'Title III E and CBS Respite Care are each about 13% spent']];
+    const s = '<div class="next-grid" style="position:absolute;left:130px;top:330px;width:1660px;display:grid;grid-template-columns:1fr 1fr;gap:28px">' + d.map((r) => '<div class="next-card" style="background:var(--paper);border:2px solid var(--rule);border-left:8px solid var(--main);border-radius:8px;padding:26px 30px;display:flex;gap:26px;align-items:flex-start"><span class="num next-n" style="font-size:60px;color:var(--accent)">' + r[0] + '</span><div style="display:flex;flex-direction:column;gap:12px"><span class="lab" style="font-size:34px;font-weight:700;line-height:1.2;color:var(--main)">' + r[1] + '</span><span class="lab m" style="font-size:26px">' + r[2] + '</span></div></div>').join('') + '</div>';
+    kit.stage.append(kit.h(W.page('next', 'Looking ahead', 'Four questions to carry into October reporting', '', s)));
+    W.bind(kit, 'next', this);
+    const qa = (s) => Array.from(kit.stage.querySelectorAll(s));
+    Object.assign(this, { cards: qa('.next-card'), ns: qa('.next-n') });
+  },
+  render(t, kit) {
+    W.move(kit, this, t);
+    this.cards.forEach((c, i) => {
+      const at = 0.8 + i * 1.9;
+      W.rise(kit, c, t, at, 30);
+      const s = eob(seg(t, at + 0.2, at + 0.7), 1.7);
+      this.ns[i].style.transform = 'scale(' + (0.7 + 0.3 * s).toFixed(3) + ')';
+    });
+  },
+});
+
+},
+function (kit) {
+const { seg, eo, eio, eob, lerp } = kit;
+kit.scene('end', {
+  init(kit) {
+    const stat = (n, l) => '<div class="end-stat" style="display:flex;flex-direction:column;gap:10px;border-top:4px solid var(--accent);padding-top:18px;width:440px"><span class="num" style="font-size:76px;color:var(--paper)">' + n + '</span><span class="lab" style="color:color-mix(in srgb, var(--paper) 80%, var(--main))">' + l + '</span></div>';
+    kit.stage.append(kit.h('<div class="ground" style="background:var(--main)"><div class="cam end-cam">' +
+      '<div class="end-band" style="position:absolute;left:0;top:0;width:1920px;height:14px;background:var(--accent);transform-origin:0 0"></div>' +
+      '<div class="words end-words" style="left:150px;top:190px;width:1600px;gap:24px"><p class="kick end-k" style="color:color-mix(in srgb, var(--accent) 60%, var(--paper))">DAS FY27 · Q1 in summary</p><h2 class="line end-line" style="font-size:150px;color:var(--paper);letter-spacing:-.02em">On pace overall, uneven underneath</h2></div>' +
+      '<div class="words end-stats" style="left:150px;top:640px;flex-direction:row;gap:80px">' + stat('25.1%', 'Spent against a 25.0% target') + stat('$21.45M', 'Remaining for October to June') + stat('9 of 18', 'Providers at or near target') + '</div>' +
+      '<div class="end-foot" style="position:absolute;left:150px;right:150px;bottom:70px;display:flex;flex-direction:column;gap:8px;font-size:22px;color:color-mix(in srgb, var(--paper) 72%, var(--main))"><span style="font-size:26px;font-weight:700;color:var(--paper)">Design, development & analysis by Damon Smith</span><span>Atlanta Regional Commission · Aging & Independence Services</span><span>Source: FY27 DAS Budgets vs. YTD Payments, Jul to Sep 2026</span></div></div></div>'));
+    const q = (s) => kit.stage.querySelector(s), qa = (s) => Array.from(kit.stage.querySelectorAll(s));
+    Object.assign(this, { cam: q('.end-cam'), band: q('.end-band'), k: q('.end-k'), line: q('.end-line'), stats: qa('.end-stat'), foot: q('.end-foot') });
+  },
+  render(t, kit) {
+    this.cam.style.transform = 'scale(' + lerp(1.0, 1.02, eio(seg(t, 0, 7))).toFixed(4) + ')';
+    this.band.style.transform = 'scaleX(' + eio(seg(t, 0, 1.0)).toFixed(3) + ')';
+    W.rise(kit, this.k, t, 0.2, 18);
+    kit.TextFx.fadeFromRight(this.line, t, 0.4);
+    this.stats.forEach((e, i) => W.rise(kit, e, t, 1.8 + i * 0.35, 22));
+    W.rise(kit, this.foot, t, 3.0, 10);
+  },
+});
+
+},
+function (kit) {
+kit.score(function (S, T) {
+  const bpm = 90, B = 60 / bpm, BAR = 4 * B;
+  S.tempo(bpm, { t0: 0 });
+  S.program('pad', 'pad', { rev: 0.6, gain: -4 });
+  S.program('bass', 'bass', { gain: -6 });
+  S.program('ep', 'ep', { rev: 0.35, gain: -8, pan: -0.15 });
+  S.program('mal', 'marimba', { rev: 0.3, gain: -10, pan: 0.2 });
+  const prog = [['D3', 'F#3', 'A3', 'C#4'], ['B2', 'D3', 'F#3', 'A3'], ['G2', 'B2', 'D3', 'F#3'], ['A2', 'C#3', 'E3', 'A3']];
+  const roots = ['D2', 'B1', 'G1', 'A1'];
+  const tops = [['F#4', 'A4'], ['D4', 'F#4'], ['B3', 'D4'], ['C#4', 'E4']];
+  const nBars = Math.floor((T.END - 1) / BAR);
+  const quiet = (t) => t >= T.next && t < T.end;
+  for (let b = 0; b < nBars; b++) {
+    const t = b * BAR, c = b % 4;
+    if (t > T.END - 8) break;
+    const v = b < 2 ? 26 : quiet(t) ? 34 : 44;
+    S.chord('pad', prog[c], { t: t, dur: BAR, vel: v });
+    if (b >= 2) S.note('bass', roots[c], { t: t, dur: BAR * 0.9, vel: quiet(t) ? 34 : 52 });
+    if (b >= 3 && !quiet(t)) S.pattern('ep', 'x..x..x.', { t0: t, from: b * 4, repeat: 1, pitch: tops[c], vel: 40 });
+    if (b >= 4 && !quiet(t) && t < T.next - BAR) S.drums({ kick: 'x.....x.', hat: '..o...o.', sidestick: '....x...' }, { from: b * 4, repeat: 1 });
+  }
+  const ids = ['pace', 'runrate', 'concentration', 'spread', 'offsets', 'zero', 'momentum', 'funds', 'categories', 'next'];
+  ids.forEach((id) => S.fx('whoosh', Math.max(0, T[id] - 0.15), { dur: 0.4, vel: 30 }));
+  S.fx('pop', T.pace + 2.0, { vel: 30 }); S.fx('pop', T.pace + 4.0, { vel: 30 }); S.fx('pop', T.pace + 5.9, { vel: 34 });
+  S.fx('ding', T.runrate + 5.8, { vel: 30 });
+  S.fx('chime', T.concentration + 5.3, { vel: 34 });
+  S.fx('pop', T.offsets + 9.9, { vel: 40 });
+  [0, 1, 2].forEach((i) => S.fx('tick', T.zero + 1.6 + i * 0.5, { vel: 40 }));
+  S.fx('ding', T.momentum + 5.3, { vel: 26 });
+  [0, 1, 2, 3].forEach((i) => S.fx('pop', T.next + 1.0 + i * 1.9, { vel: 34 }));
+  S.fx('revswell', T.end, { dur: 1.6, vel: 40 });
+  S.chord('pad', ['D3', 'A3', 'D4', 'F#4'], { t: T.end, dur: 6, vel: 64 });
+  S.note('bass', 'D2', { t: T.end, dur: 5, vel: 66 });
+  S.chord('mal', ['D5', 'F#5', 'A5'], { t: T.end + 0.4, dur: 2, vel: 54 });
+  S.fx('chime', T.end + 0.4, { vel: 50 });
+  S.drum('kick', { t: T.end, vel: 80 });
+  S.master({ gain: -6, fadeOut: 2 });
+});
+
+}];
+  const errBox = (m) => { const e = document.createElement('div'); e.className = 'err'; e.textContent = m; document.getElementById('vp').appendChild(e); };
+  MODULES.forEach((m) => { try { m(modKit); } catch (e) { errBox('Module error: ' + e.message); } });
+
+  list.forEach((s) => {
+    const box = document.createElement('div'); box.className = 'scene'; stage.appendChild(box);
+    s.box = box;
+    s.kit = Object.assign({}, base, { stage: box, dur: s.dur, start: s.start });
+    s.def = defs[s.id];
+    try { if (s.def && s.def.init) s.def.init.call(s.def, s.kit); } catch (e) { errBox(s.id + ': ' + e.message); }
+  });
+
+  let cur = null;
+  function render(t) {
+    t = Math.max(0, Math.min(TOTAL - 0.0001, t));
+    const s = list.find((x) => t >= x.start && t < x.start + x.dur) || list[list.length - 1];
+    if (cur !== s) { if (cur) cur.box.style.display = 'none'; s.box.style.display = 'block'; cur = s; }
+    try { if (s.def) s.def.render.call(s.def, t - s.start, s.kit); } catch (e) { /* keep playing */ }
+    document.getElementById('time').textContent = fmt(t) + ' / ' + fmt(TOTAL);
+    if (!dragging) document.getElementById('scrub').value = Math.round(t / TOTAL * 1000);
+    const ch = document.getElementById('chap'); if (ch.value !== s.id) ch.value = s.id;
+  }
+  const fmt = (t) => Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0');
+
+  // ---- score: a small synth for the recorded events ----
+  const EV = [];
+  let bpm = 90, t0b = 0;
+  const bt = (b) => t0b + b * 60 / bpm;
+  const S = {
+    tempo(b, o) { bpm = b; t0b = (o && o.t0) || 0; },
+    program() {}, master(o) { S.m = o || {}; },
+    note(tr, p, o) { EV.push({ k: 'n', tr, p: [p], t: o.t != null ? o.t : bt(o.beat), d: o.dur != null ? o.dur : (o.beats || 1) * 60 / bpm, v: o.vel || 64 }); },
+    chord(tr, ps, o) { EV.push({ k: 'n', tr, p: ps, t: o.t != null ? o.t : bt(o.beat), d: o.dur != null ? o.dur : (o.beats || 1) * 60 / bpm, v: o.vel || 64 }); },
+    pattern(tr, pat, o) {
+      const rep = o.repeat || 1, pitch = o.pitch || ['C4']; let n = 0;
+      for (let r = 0; r < rep; r++) for (let i = 0; i < pat.length; i++) {
+        const c = pat[i]; if (c === '.') continue;
+        const b = (o.from || 0) + (r * pat.length + i) * 0.5;
+        EV.push({ k: 'n', tr, p: [pitch[n++ % pitch.length]], t: bt(b), d: 0.4, v: (o.vel || 64) * (c === 'X' ? 1.25 : c === 'o' ? 0.5 : 1) });
+      }
+    },
+    drums(map, o) {
+      const rep = o.repeat || 1;
+      Object.keys(map).forEach((name) => { const pat = map[name];
+        for (let r = 0; r < rep; r++) for (let i = 0; i < pat.length; i++) { const c = pat[i]; if (c === '.') continue;
+          EV.push({ k: 'd', name, t: bt((o.from || 0) + (r * pat.length + i) * 0.5), v: c === 'o' ? 40 : c === 'X' ? 110 : 80 }); } });
+    },
+    drum(name, o) { EV.push({ k: 'd', name, t: o.t != null ? o.t : bt(o.beat), v: o.vel || 80 }); },
+    fx(name, t, o) { o = o || {}; EV.push({ k: 'f', name, t, d: o.dur || 0.5, v: o.vel || 60 }); },
+    beat(n) { return n * 60 / bpm; },
+  };
+  if (scoreFn) { try { scoreFn(S, T); } catch (e) { errBox('Score: ' + e.message); } }
+  const hz = (p) => { const m = /^([A-G])(#|b)?(-?\d)$/.exec(p); if (!m) return 440;
+    const n = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }[m[1]] + (m[2] === '#' ? 1 : m[2] === 'b' ? -1 : 0);
+    return 440 * Math.pow(2, (n + (+m[3] + 1) * 12 - 69) / 12); };
+  let ac = null, bus = null, noiseBuf = null, soundOn = false;
+  function ensureAudio() {
+    if (ac) return; ac = new (window.AudioContext || window.webkitAudioContext)();
+    noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
+    const d = noiseBuf.getChannelData(0); let s = 7; for (let i = 0; i < d.length; i++) { s = (s * 16807) % 2147483647; d[i] = s / 1073741823.5 - 1; }
+  }
+  function tone(type, f, at, dur, g, atk, rel, dest) {
+    const o = ac.createOscillator(), a = ac.createGain(); o.type = type; o.frequency.value = f;
+    a.gain.setValueAtTime(0, at); a.gain.linearRampToValueAtTime(g, at + atk);
+    a.gain.setValueAtTime(g, Math.max(at + atk, at + dur - rel)); a.gain.linearRampToValueAtTime(0, at + dur);
+    o.connect(a); a.connect(dest); o.start(at); o.stop(at + dur + 0.05); return o;
+  }
+  function noise(at, dur, g, ftype, freq, dest, swell) {
+    const s = ac.createBufferSource(), f = ac.createBiquadFilter(), a = ac.createGain();
+    s.buffer = noiseBuf; f.type = ftype; f.frequency.value = freq;
+    if (swell) { a.gain.setValueAtTime(0.0001, at); a.gain.exponentialRampToValueAtTime(g, at + dur); a.gain.linearRampToValueAtTime(0, at + dur + 0.05); }
+    else { a.gain.setValueAtTime(g, at); a.gain.exponentialRampToValueAtTime(0.0001, at + dur); }
+    s.connect(f); f.connect(a); a.connect(dest); s.start(at); s.stop(at + dur + 0.1);
+  }
+  function schedule(from) {
+    ensureAudio(); if (ac.state === 'suspended') ac.resume();
+    if (bus) { try { bus.disconnect(); } catch (e) {} }
+    bus = ac.createGain(); bus.gain.value = 0.5; bus.connect(ac.destination);
+    const now = ac.currentTime + 0.05;
+    const fade = (S.m && S.m.fadeOut) || 0;
+    if (fade) { const fe = now + (TOTAL - from); bus.gain.setValueAtTime(0.5, Math.max(now, fe - fade)); bus.gain.linearRampToValueAtTime(0, Math.max(now + 0.01, fe)); }
+    EV.forEach((e) => {
+      if (e.t < from - 0.02 || e.t > TOTAL) return;
+      const at = now + (e.t - from), v = e.v / 127;
+      if (e.k === 'n') {
+        e.p.forEach((p) => { const f = hz(p);
+          if (e.tr === 'pad') tone('triangle', f, at, e.d, v * 0.07, Math.min(0.8, e.d / 3), Math.min(0.9, e.d / 3), bus);
+          else if (e.tr === 'bass') tone('sine', f, at, e.d, v * 0.22, 0.02, 0.3, bus);
+          else tone('sine', f, at, Math.max(0.35, Math.min(e.d, 1.2)), v * 0.12, 0.005, Math.max(0.3, Math.min(e.d, 1.2)) - 0.01, bus);
+        });
+      } else if (e.k === 'd') {
+        if (e.name === 'kick') { const o = ac.createOscillator(), a = ac.createGain(); o.frequency.setValueAtTime(120, at); o.frequency.exponentialRampToValueAtTime(45, at + 0.15);
+          a.gain.setValueAtTime(v * 0.5, at); a.gain.exponentialRampToValueAtTime(0.0001, at + 0.3); o.connect(a); a.connect(bus); o.start(at); o.stop(at + 0.35); }
+        else if (e.name === 'hat') noise(at, 0.05, v * 0.08, 'highpass', 7000, bus);
+        else noise(at, 0.06, v * 0.12, 'bandpass', 1800, bus);
+      } else {
+        const n = e.name;
+        if (n === 'whoosh') noise(at, e.d, v * 0.12, 'bandpass', 900, bus);
+        else if (n === 'revswell') noise(at - e.d, e.d, v * 0.15, 'lowpass', 2500, bus, true);
+        else if (n === 'tick') noise(at, 0.03, v * 0.25, 'highpass', 3000, bus);
+        else if (n === 'pop') tone('sine', 660, at, 0.12, v * 0.18, 0.003, 0.1, bus);
+        else if (n === 'ding') tone('sine', 1320, at, 0.9, v * 0.12, 0.003, 0.85, bus);
+        else if (n === 'chime') { tone('sine', 1568, at, 1.4, v * 0.1, 0.003, 1.3, bus); tone('sine', 2093, at + 0.06, 1.2, v * 0.06, 0.003, 1.1, bus); }
+      }
+    });
+  }
+  function silence() { if (bus) { try { bus.disconnect(); } catch (e) {} bus = null; } }
+
+  // ---- transport ----
+  let playing = false, t = 0, last = 0, dragging = false;
+  const playBtn = document.getElementById('play'), sndBtn = document.getElementById('snd');
+  function play() { if (t >= TOTAL - 0.05) t = 0; playing = true; last = performance.now(); playBtn.textContent = 'Pause'; if (soundOn) schedule(t); requestAnimationFrame(tick); }
+  function pause() { playing = false; playBtn.textContent = 'Play'; silence(); }
+  function seek(x) { t = Math.max(0, Math.min(TOTAL, x)); render(t); if (playing && soundOn) schedule(t); }
+  function tick(now) {
+    if (!playing) return;
+    t += (now - last) / 1000; last = now;
+    if (t >= TOTAL) { t = TOTAL - 0.0001; render(t); pause(); return; }
+    render(t); requestAnimationFrame(tick);
+  }
+  playBtn.onclick = () => playing ? pause() : play();
+  let swallow = false;
+  document.getElementById('vp').onclick = () => { if (swallow) { swallow = false; return; } playing ? pause() : play(); };
+  sndBtn.onclick = () => { soundOn = !soundOn; sndBtn.textContent = soundOn ? 'Sound on' : 'Sound off'; if (soundOn && playing) schedule(t); else silence(); };
+  const scrub = document.getElementById('scrub');
+  scrub.oninput = () => { dragging = true; seek(scrub.value / 1000 * TOTAL); };
+  scrub.onchange = () => { dragging = false; };
+  const chap = document.getElementById('chap');
+  list.forEach((s, i) => { const o = document.createElement('option'); o.value = s.id; o.textContent = (i + 1) + '. ' + s.name; chap.appendChild(o); });
+  chap.onchange = () => seek(list.find((s) => s.id === chap.value).start);
+  document.getElementById('fs').onclick = () => { const a = document.querySelector('.app'); if (document.fullscreenElement) document.exitFullscreen(); else if (a.requestFullscreen) a.requestFullscreen(); };
+  document.addEventListener('keydown', (e) => {
+    if (e.code === 'Space') { e.preventDefault(); playing ? pause() : play(); }
+    else if (e.code === 'ArrowRight') seek(t + 5); else if (e.code === 'ArrowLeft') seek(t - 5);
+  });
+  function fit() {
+    const vp = document.getElementById('vp'), w = vp.clientWidth, hh = vp.clientHeight, s = Math.min(w / 1920, hh / 1080);
+    stage.style.transform = 'translate(' + ((w - 1920 * s) / 2) + 'px,' + ((hh - 1080 * s) / 2) + 'px) scale(' + s + ')';
+  }
+  window.addEventListener('resize', fit); fit();
+  window.__seek = (x) => { t = x; render(x); };
+  // Autoplay with sound on. Browsers only allow audio after a click or key press,
+  // so if the sound is blocked, a full-screen prompt starts it on the first click.
+  soundOn = true; sndBtn.textContent = 'Sound on';
+  const gate = document.createElement('div');
+  gate.style.cssText = 'position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(11,22,36,.55);cursor:pointer;z-index:5';
+  gate.innerHTML = '<div style="background:#12355B;color:#EEF2F7;padding:22px 34px;border-radius:12px;font:600 22px Inter,system-ui,sans-serif;border-top:5px solid #2F9C95;box-shadow:0 10px 40px rgba(0,0,0,.35)">Click anywhere to play with sound</div>';
+  document.getElementById('vp').appendChild(gate);
+  const unlock = () => {
+    if (gate.style.display !== 'none') swallow = true;
+    gate.style.display = 'none';
+    document.removeEventListener('pointerdown', unlock, true); document.removeEventListener('keydown', unlock, true);
+    ensureAudio();
+    ac.resume().then(() => { t = 0; render(0); if (playing) schedule(0); else play(); setTimeout(() => { swallow = false; }, 600); });
+  };
+  function showGate() {
+    if (gate.style.display === 'flex') return;
+    gate.style.display = 'flex';
+    document.addEventListener('pointerdown', unlock, true); document.addEventListener('keydown', unlock, true);
+  }
+  function autoStart() {
+    ensureAudio();
+    if (ac.state === 'running') { play(); return; }
+    soundOn = false; play(); soundOn = true;           // picture starts at once
+    showGate();                                       // sound joins on the first click or key
+    ac.resume().then(() => {                          // some browsers allow it outright
+      if (ac.state === 'running' && gate.style.display === 'flex') {
+        gate.style.display = 'none';
+        document.removeEventListener('pointerdown', unlock, true); document.removeEventListener('keydown', unlock, true);
+        if (playing) schedule(t);
+      }
+    }).catch(() => {});
+  }
+  let started = false;
+  const go = () => { if (started) return; started = true; autoStart(); };
+  if (document.fonts && document.fonts.ready) Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 1500))]).then(go); else go();
+})();
+</script>
+</body>
+</html>
